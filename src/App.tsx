@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core"
 import { useEffect, useState } from "react"
-import "./App.css"
+//import "./App.css"
+import { Button } from "./components/ui/button"
 
 type AppState = "CONNECTING" | "CONTROL"
 
@@ -64,7 +65,7 @@ function App() {
   if (state === "CONNECTING") {
     return (
       <div className="setup-container">
-        <h1>Configuration DMX</h1>
+        <h1 className="text-3xl">Configuration DMX</h1>
         <p>Sélectionnez votre adaptateur Arduino :</p>
 
         <div className="setup-box">
@@ -82,15 +83,11 @@ function App() {
           <button onClick={refreshPorts}>🔄</button>
         </div>
 
-        {error && <p className="error-message">{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <button
-          className="connect-btn"
-          disabled={!selectedPort}
-          onClick={handleConnect}
-        >
+        <Button disabled={!selectedPort} onClick={handleConnect}>
           Vérifier et Connecter
-        </button>
+        </Button>
       </div>
     )
   }
