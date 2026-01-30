@@ -26,8 +26,12 @@ function App() {
   }
 
   return (
-    <Tabs className="flex flex-col items-center size-full">
-      <TabsList defaultValue={"fixtures"}>
+    <Tabs
+      className="flex flex-col items-center size-full"
+      value={currentView}
+      onValueChange={(v) => setCurrentView(v as View)}
+    >
+      <TabsList>
         {APP_VIEWS.map((view) => (
           <TabsTrigger
             key={view.id}
