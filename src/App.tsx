@@ -2,7 +2,8 @@ import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
 import { FixtureView } from "./components/vues/fixture-view"
 import { SceneView } from "./components/vues/scene-view"
-import { View, views } from "./types/navigation"
+import { APP_VIEWS } from "./lib/constants"
+import { View } from "./types/navigation"
 
 function App() {
   const [currentView, setCurrentView] = useState<View>("fixtures")
@@ -26,8 +27,8 @@ function App() {
 
   return (
     <Tabs className="flex flex-col items-center size-full">
-      <TabsList>
-        {views.map((view) => (
+      <TabsList defaultValue={"fixtures"}>
+        {APP_VIEWS.map((view) => (
           <TabsTrigger
             key={view.id}
             value={view.id}

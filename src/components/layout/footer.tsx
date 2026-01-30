@@ -16,8 +16,8 @@ export function AppFooter({ className, ...props }: ComponentProps<"footer">) {
 }
 
 function ProjectInfo() {
-  const { data } = useProject()
-  return <span>{data.name}</span>
+  const { name } = useProject()
+  return <span>{`Projet : ${name}`}</span>
 }
 
 function AppStatusIndicator() {

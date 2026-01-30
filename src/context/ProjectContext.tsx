@@ -1,22 +1,23 @@
+import { APP_PATHS } from "@/lib/constants"
+import { getOpenPath, getSavePath, loadJson, saveJson } from "@/lib/fs"
 import { projectReducer } from "@/lib/project-handler"
 import { DmxFixture } from "@/types/dmx"
 import { Project } from "@/types/project"
-import { documentDir, join } from "@tauri-apps/api/path"
-import {
-  open as openFileDialog,
-  save as saveFileDialog,
-} from "@tauri-apps/plugin-dialog"
-import { mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs"
+import { basename, join } from "@tauri-apps/api/path"
+import { exists } from "@tauri-apps/plugin-fs"
 import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useReducer,
+  useRef,
+  useState,
 } from "react"
+import { useApp } from "./AppContext"
 
 const initialState: Project = {
   id: crypto.randomUUID(),
-  name: "Nouveau Projet",
   fixtures: [],
   scenes: [],
 }
@@ -28,9 +29,12 @@ interface ProjectContextType {
     update: (fixture: DmxFixture) => void
     delete: (id: string) => void
   }
-  load: (path?: string) => Promise<UserActionResult>
-  save: (path?: string) => Promise<UserActionResult>
+  load: () => Promise<UserActionResult>
+  save: () => Promise<UserActionResult>
+  saveAs: () => Promise<UserActionResult>
   new: () => void
+  path: string | null
+  name: string
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined)
@@ -43,123 +47,140 @@ export const ProjectProvider = ({
   initialProject?: Project
 }) => {
   const [state, dispatch] = useReducer(projectReducer, initialProject)
+  const { appConfigPath, settings, updateSettings } = useApp()
+  const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
+    null,
+  )
+  const [projectName, setProjectName] = useState("Nouveau Projet")
 
-  const load = useCallback(async (path?: string): Promise<UserActionResult> => {
-    try {
-      // 1. Calculer le chemin par défaut pour faciliter la navigation
-      const docsPath = await documentDir()
-      const defaultFolder = await join(docsPath, "DMX_Projects")
+  const hasAttemptedAutoLoad = useRef(false)
 
-      // 2. Ouvrir la boîte de dialogue de sélection de fichier
-      const selected =
-        path ??
-        (await openFileDialog({
-          multiple: false, // On ne veut qu'un seul projet à la fois
-          title: "Ouvrir un projet DMX",
-          defaultPath: defaultFolder,
-          filters: [
-            {
-              name: "Projet DMX",
-              extensions: ["json"],
-            },
-          ],
-        }))
+  useEffect(() => {
+    if (
+      hasAttemptedAutoLoad.current ||
+      !!currentProjectPath ||
+      !settings.lastProjectPath
+    )
+      return
 
-      // 3. Si l'utilisateur annule, selected sera null
-      if (!selected) return { success: true }
+    console.log("init Project", {
+      lastProjectPath: settings.lastProjectPath,
+    })
+    hasAttemptedAutoLoad.current = true
+    // Charger automatiquement le dernier projet au lancement
+    handleLoadProject(settings.lastProjectPath)
+  }, [settings.lastProjectPath, currentProjectPath])
 
-      // selected contient le chemin complet du fichier (string sur desktop)
-      const filePath = Array.isArray(selected) ? selected[0] : selected
+  const handlePathChange = useCallback(
+    async (path: string) => {
+      setCurrentProjectPath(path)
+      const name = await basename(path, ".json")
+      setProjectName(name)
+      updateSettings({ lastProjectPath: path })
+    },
+    [updateSettings],
+  )
 
-      // 4. Lire le contenu du fichier
-      const content = await readTextFile(filePath)
-
-      // 5. Parser le JSON
-      const projectData: Project = JSON.parse(content)
-
-      // 6. Envoyer les données au reducer pour mettre à jour toute l'app
-      dispatch({ type: "LOAD_PROJECT", payload: projectData })
-
-      console.log(`Projet "${projectData.name}" chargé avec succès !`)
-      return { success: true }
-    } catch (error) {
-      console.error("Erreur lors du chargement du projet :", error)
-      return { success: false, error: "Erreur lors du chargement du projet" }
-    }
-  }, [])
-
-  const save = useCallback(
-    async (newName?: string): Promise<UserActionResult> => {
+  const handleLoadProject = useCallback(
+    async (path: string) => {
       try {
-        // 1. Récupérer le chemin vers "Documents" de l'utilisateur actuel
-        const docsPath = await documentDir()
-
-        // 2. Créer le chemin vers ton sous-dossier spécifique
-        const defaultFolder = await join(docsPath, "DMX_Projects")
-
-        try {
-          await mkdir(defaultFolder, { recursive: true })
-        } catch (e) {
-          // Le dossier existe probablement déjà, on ignore
-          console.error("Unable to create project folder:", e)
+        // Vérification de sécurité avant de tenter le load
+        if (!(await exists(path))) {
+          console.warn(`Le fichier projet à l'adresse ${path} est introuvable.`)
+          updateSettings({ lastProjectPath: null }) // On nettoie les settings
+          return false
         }
 
-        // 3. Ouvrir la boîte de dialogue "Enregistrer sous"
-        const path = await saveFileDialog({
-          title: "Enregistrer le projet DMX",
-          filters: [
-            {
-              name: "Projet DMX",
-              extensions: ["json"],
-            },
-          ],
-          // On suggère le nom actuel du projet comme nom de fichier
-          defaultPath: await join(
-            defaultFolder,
-            `${newName ?? state.name}.json`,
-          ),
-        })
+        const projectData = await loadJson<Project>(path)
 
-        // 4. Si l'utilisateur a annulé (path est null), on ne fait rien
-        if (!path) return { success: true }
+        // On met à jour le state via le reducer
+        dispatch({ type: "LOAD_PROJECT", payload: projectData })
 
-        // 5. Conversion du state (le projet) en chaîne JSON
-        // null, 2 permet d'avoir un fichier lisible (indenté)
-        const content = JSON.stringify(state, null, 2)
+        // On mémorise le chemin pour les futurs "Save"
+        await handlePathChange(path)
 
-        // 6. Écriture physique sur le disque
-        await writeTextFile(path, content)
-
-        console.log(`Projet sauvegardé avec succès à l'emplacement : ${path}`)
-
-        return {
-          success: true,
-          message: "Projet sauvegardé avec succès",
-        }
+        console.log(`Projet chargé depuis : ${path}`)
+        return true
       } catch (error) {
-        console.error("Échec de la sauvegarde :", error)
-        return {
-          success: false,
-          error: "Échec de la sauvegarde",
-        }
+        console.error(`Erreur lors du chargement de ${path}:`, error)
+        return false
       }
     },
-    [state],
+    [handlePathChange, updateSettings],
   )
 
-  const createNew = useCallback(
-    () =>
-      dispatch({
-        type: "LOAD_PROJECT",
-        payload: {
-          id: crypto.randomUUID(),
-          name: "Nouveau Projet",
-          fixtures: [],
-          scenes: [],
-        },
-      }),
-    [],
-  )
+  const handleReset = useCallback(() => {
+    setCurrentProjectPath(null)
+    setProjectName("Nouveau Projet")
+  }, [])
+
+  const load = useCallback(async (): Promise<UserActionResult> => {
+    try {
+      const defaultDir = await join(appConfigPath, APP_PATHS.PROJECTS_DIR)
+      const path = await getOpenPath(defaultDir)
+
+      if (path) {
+        await handleLoadProject(path)
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Erreur lors du chargement :", error)
+      return { success: false, error: "Erreur lors du chargement" }
+    }
+  }, [appConfigPath, handleLoadProject])
+
+  const saveAs = useCallback(async (): Promise<UserActionResult> => {
+    try {
+      // Dossier par défaut : soit celui du projet actuel, soit le dossier 'projects' de l'app
+      const defaultDir = currentProjectPath
+        ? undefined // Le dialogue reprendra le dernier dossier
+        : await join(appConfigPath, APP_PATHS.PROJECTS_DIR)
+
+      const path = await getSavePath(projectName, { defaultDir })
+
+      if (path) {
+        await saveJson(path, state)
+        handlePathChange(path)
+        console.log("Projet enregistré sous :", path)
+        return { success: true, message: "Projet enrengistré." }
+      }
+
+      return { success: false, error: "Aucun chemin d'enregistrement choisi" }
+    } catch (error) {
+      console.error("Erreur SaveAs :", error)
+      return { success: false, error: "Erreur lors de l'enregistrement" }
+    }
+  }, [state, appConfigPath, currentProjectPath, projectName])
+
+  const save = useCallback(async (): Promise<UserActionResult> => {
+    if (!currentProjectPath) {
+      // Premier enregistrement -> SaveAs
+      return saveAs()
+    }
+
+    try {
+      await saveJson(currentProjectPath, state)
+      console.log("Projet écrasé avec succès :", currentProjectPath)
+      return { success: true, message: "Projet sauvegardé." }
+    } catch (error) {
+      console.error("Erreur Save :", error)
+      return saveAs()
+    }
+  }, [state, currentProjectPath, saveAs])
+
+  const createNew = useCallback(() => {
+    dispatch({
+      type: "LOAD_PROJECT",
+      payload: {
+        id: crypto.randomUUID(),
+        fixtures: [],
+        scenes: [],
+      },
+    })
+    handleReset()
+    console.log("Nouveau projet créé.")
+  }, [])
 
   const api: ProjectContextType = {
     data: state,
@@ -170,7 +191,10 @@ export const ProjectProvider = ({
     },
     load,
     save,
+    saveAs,
     new: createNew,
+    path: currentProjectPath,
+    name: projectName,
   }
 
   return (

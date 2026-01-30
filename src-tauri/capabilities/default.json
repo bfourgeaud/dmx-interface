@@ -11,9 +11,12 @@
     "fs:allow-exists",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
-    {
-      "identifier": "fs:allow-mkdir",
-      "allow": [{ "path": "$DOCUMENT/*" }]
-    }
+    "fs:allow-mkdir",
+    "fs:write-all",
+    "fs:scope-resource-recursive",
+    "fs:allow-app-write-recursive",
+    "fs:allow-appconfig-write",
+    "fs:allow-appconfig-read-recursive",
+    "fs:allow-appconfig-write-recursive"
   ]
 }
