@@ -1,128 +1,59 @@
-import { invoke } from "@tauri-apps/api/core"
-import { useEffect, useState } from "react"
-//import "./App.css"
-import { Button } from "./components/ui/button"
-
-type AppState = "CONNECTING" | "CONTROL"
+import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
+import { FixtureView } from "./components/vues/fixture-view"
+import { SceneView } from "./components/vues/scene-view"
+import { View, views } from "./types/navigation"
 
 function App() {
-  const [state, setState] = useState<AppState>("CONNECTING")
-  const [ports, setPorts] = useState<string[]>([])
-  const [selectedPort, setSelectedPort] = useState<string>("")
-  const [error, setError] = useState<string | null>(null)
-  const [intensity, setIntensity] = useState(0)
+  const [currentView, setCurrentView] = useState<View>("fixtures")
 
-  // Charger les ports au démarrage
-  useEffect(() => {
-    refreshPorts()
-  }, [])
-
-  const refreshPorts = async () => {
-    try {
-      const res = await invoke<string[]>("list_ports")
-      setPorts(res)
-      if (res.length > 0) setSelectedPort(res[0])
-    } catch (err) {
-      setError("Impossible de lister les ports.")
+  const renderView = () => {
+    switch (currentView) {
+      case "fixtures":
+        return <FixtureView />
+      case "scenes":
+        return <SceneView />
+      case "live":
+        return (
+          <div className="p-6">
+            <h1>Console Live</h1>
+          </div>
+        )
+      default:
+        return null
     }
-  }
-
-  const handleConnect = async () => {
-    setError(null)
-    try {
-      const isDmxReady = await invoke<boolean>("check_port", {
-        portName: selectedPort,
-      })
-
-      if (isDmxReady) {
-        setState("CONTROL")
-      } else {
-        setError(`${selectedPort}: DMX_READY non reçu`)
-      }
-    } catch (err) {
-      setError(
-        `Erreur de connexion sur ${selectedPort}. Le port est peut-être déjà utilisé.`,
-      )
-    }
-  }
-
-  const handleIntensityChange = async (val: number) => {
-    setIntensity(val)
-    try {
-      await invoke("send_dmx", {
-        portName: selectedPort,
-        canal: 1,
-        valeur: val,
-      })
-    } catch (err) {
-      console.error("Erreur d'envoi:", err)
-      // Si on perd la connexion, on peut repasser en mode connexion
-      setState("CONNECTING")
-      setError("Connexion perdue avec l'Arduino.")
-    }
-  }
-
-  if (state === "CONNECTING") {
-    return (
-      <div className="setup-container">
-        <h1 className="text-3xl">Configuration DMX</h1>
-        <p>Sélectionnez votre adaptateur Arduino :</p>
-
-        <div className="setup-box">
-          <select
-            value={selectedPort}
-            onChange={(e) => setSelectedPort(e.target.value)}
-          >
-            {ports.length === 0 && <option>Aucun port détecté</option>}
-            {ports.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-          <button onClick={refreshPorts}>🔄</button>
-        </div>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <Button disabled={!selectedPort} onClick={handleConnect}>
-          Vérifier et Connecter
-        </Button>
-      </div>
-    )
   }
 
   return (
-    <div className="control-container">
-      <header>
-        <span>
-          Connecté sur : <strong>{selectedPort}</strong>
-        </span>
-        <button onClick={() => setState("CONNECTING")}>Déconnecter</button>
-      </header>
-
-      <div className="slider-card">
-        <h2>Dimmer Principal</h2>
-        <div className="intensity-display">{intensity}</div>
-        <input
-          type="range"
-          min="0"
-          max="255"
-          value={intensity}
-          onChange={(e) => handleIntensityChange(parseInt(e.target.value))}
-        />
-        <div className="labels">
-          <span>0%</span>
-          <span>Canal 1</span>
-          <span>100%</span>
-        </div>
-      </div>
-
-      <button className="blackout-btn" onClick={() => handleIntensityChange(0)}>
-        BLACKOUT
-      </button>
-    </div>
+    <Tabs className="flex flex-col items-center size-full">
+      <TabsList>
+        {views.map((view) => (
+          <TabsTrigger
+            key={view.id}
+            value={view.id}
+            onClick={() => setCurrentView(view.id)}
+          >
+            {view.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      <TabsContent value={currentView} className="grow w-full p-4">
+        {renderView()}
+      </TabsContent>
+    </Tabs>
   )
 }
 
+/**
+ * const { toggleBlackout, isBlackout } = useDmx()
+ * <Button variant={"secondary"} onClick={toggleBlackout}>
+        <div
+          className={cn(
+            "size-6 rounded-full",
+            isBlackout ? "bg-green-800" : "bg-red-800",
+          )}
+        />
+        {`BLACKOUT ${isBlackout ? "ON" : "OFF"}`}
+      </Button>
+ */
 export default App
