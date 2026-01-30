@@ -28,7 +28,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paths, setPaths] = useState<AppPaths | null>(null)
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
+  const [settings, setSettings] = useState<AppSettings | null>(null)
 
   // Initialisation du dossier de l'application au démarrage
   useEffect(() => {
@@ -44,7 +44,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (!paths?.configPath) return
 
       setSettings((prev) => {
-        const updated = { ...prev, ...newSettings }
+        const updated = { ...(prev || DEFAULT_SETTINGS), ...newSettings }
         // Sauvegarde asynchrone sur le disque
         saveSettings(paths?.configPath, updated)
         return updated
@@ -54,7 +54,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   )
 
   // Si on n'est pas prêt, on bloque le rendu
-  if (!paths) {
+  if (!paths || !settings) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-background">
         <p className="animate-pulse text-muted-foreground">
