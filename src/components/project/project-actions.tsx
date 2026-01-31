@@ -1,5 +1,11 @@
 import { useProject } from "@/context/ProjectContext"
-import { FolderOpenIcon, PlusIcon, SaveIcon, Undo2Icon } from "lucide-react"
+import {
+  FolderOpenIcon,
+  PlusIcon,
+  RedoIcon,
+  SaveIcon,
+  Undo2Icon,
+} from "lucide-react"
 import { ActionButton } from "../ui/action-button"
 import { Button } from "../ui/button"
 import { ButtonGroup } from "../ui/button-group"
@@ -9,13 +15,27 @@ export function ProjectActions() {
   return (
     <ButtonGroup>
       <ButtonGroup>
-        <Button variant={"outline"} size={"icon"} disabled>
+        <Button
+          variant={"outline"}
+          size={"icon"}
+          disabled={!project.canUndo}
+          onClick={project.undo}
+        >
           <Undo2Icon />
+        </Button>
+        <Button
+          variant={"outline"}
+          size={"icon"}
+          disabled={!project.canRedo}
+          onClick={project.redo}
+        >
+          <RedoIcon />
         </Button>
         <ActionButton
           variant={"outline"}
           size={"icon"}
           action={async () => await project.save()}
+          disabled={!project.shouldSave}
         >
           <SaveIcon />
         </ActionButton>

@@ -2,10 +2,14 @@ import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
 import { FixtureView } from "./components/vues/fixture-view"
 import { SceneView } from "./components/vues/scene-view"
+import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts"
+import { useUnsavedClose } from "./hooks/use-unsaved-close"
 import { APP_VIEWS } from "./lib/constants"
 import { View } from "./types/navigation"
 
 function App() {
+  useUnsavedClose()
+  useKeyboardShortcuts()
   const [currentView, setCurrentView] = useState<View>("fixtures")
 
   const renderView = () => {

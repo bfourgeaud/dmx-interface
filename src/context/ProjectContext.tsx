@@ -1,25 +1,28 @@
-import { APP_PATHS } from "@/lib/constants"
+import { APP_PATHS, DEFAULT_PROJECT } from "@/lib/constants"
 import { getOpenPath, getSavePath, loadJson, saveJson } from "@/lib/fs"
-import { projectReducer } from "@/lib/project-handler"
+import { projectReducer, ProjectState } from "@/lib/project-handler"
 import { DmxFixture } from "@/types/dmx"
 import { Project } from "@/types/project"
 import { basename, join } from "@tauri-apps/api/path"
+import { ask } from "@tauri-apps/plugin-dialog"
 import { exists } from "@tauri-apps/plugin-fs"
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
 } from "react"
 import { useApp } from "./AppContext"
 
-const initialState: Project = {
-  id: crypto.randomUUID(),
-  fixtures: [],
-  scenes: [],
+const initialState: ProjectState = {
+  past: [],
+  present: DEFAULT_PROJECT,
+  future: [],
+  isDirty: false,
 }
 
 interface ProjectContextType {
@@ -32,7 +35,13 @@ interface ProjectContextType {
   load: () => Promise<UserActionResult>
   save: () => Promise<UserActionResult>
   saveAs: () => Promise<UserActionResult>
-  new: () => void
+  new: () => Promise<void>
+  isDirty: boolean
+  undo: () => void
+  redo: () => void
+  canUndo: boolean
+  canRedo: boolean
+  shouldSave: boolean
   path: string | null
   name: string
 }
@@ -41,12 +50,10 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined)
 
 export const ProjectProvider = ({
   children,
-  initialProject = initialState,
 }: {
   children: React.ReactNode
-  initialProject?: Project
 }) => {
-  const [state, dispatch] = useReducer(projectReducer, initialProject)
+  const [state, dispatch] = useReducer(projectReducer, initialState)
   const { appConfigPath, settings, updateSettings } = useApp()
   const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
     null,
@@ -54,6 +61,11 @@ export const ProjectProvider = ({
   const [projectName, setProjectName] = useState("Nouveau Projet")
 
   const hasAttemptedAutoLoad = useRef(false)
+
+  const shouldSave = useMemo(
+    () => state.isDirty || currentProjectPath === null,
+    [state.isDirty, currentProjectPath],
+  )
 
   useEffect(() => {
     if (
@@ -70,6 +82,20 @@ export const ProjectProvider = ({
     // Charger automatiquement le dernier projet au lancement
     handleLoadProject(settings.lastProjectPath)
   }, [settings.lastProjectPath, currentProjectPath])
+
+  const confirmDiscard = useCallback(async () => {
+    if (!shouldSave) return true
+
+    return await ask(
+      "Vous avez des modifications non sauvegardées. Voulez-vous continuer ?",
+      {
+        title: "Changements non sauvegardés",
+        kind: "warning",
+        okLabel: "Continuer sans sauvegarder",
+        cancelLabel: "Annuler",
+      },
+    )
+  }, [shouldSave])
 
   const handlePathChange = useCallback(
     async (path: string) => {
@@ -115,6 +141,8 @@ export const ProjectProvider = ({
   }, [])
 
   const load = useCallback(async (): Promise<UserActionResult> => {
+    if (!(await confirmDiscard())) return { success: true }
+
     try {
       const defaultDir = await join(appConfigPath, APP_PATHS.PROJECTS_DIR)
       const path = await getOpenPath(defaultDir)
@@ -128,7 +156,7 @@ export const ProjectProvider = ({
       console.error("Erreur lors du chargement :", error)
       return { success: false, error: "Erreur lors du chargement" }
     }
-  }, [appConfigPath, handleLoadProject])
+  }, [appConfigPath, handleLoadProject, confirmDiscard])
 
   const saveAs = useCallback(async (): Promise<UserActionResult> => {
     try {
@@ -140,7 +168,7 @@ export const ProjectProvider = ({
       const path = await getSavePath(projectName, { defaultDir })
 
       if (path) {
-        await saveJson(path, state)
+        await saveJson(path, state.present)
         handlePathChange(path)
         console.log("Projet enregistré sous :", path)
         return { success: true, message: "Projet enrengistré." }
@@ -151,7 +179,7 @@ export const ProjectProvider = ({
       console.error("Erreur SaveAs :", error)
       return { success: false, error: "Erreur lors de l'enregistrement" }
     }
-  }, [state, appConfigPath, currentProjectPath, projectName])
+  }, [state.present, appConfigPath, currentProjectPath, projectName])
 
   const save = useCallback(async (): Promise<UserActionResult> => {
     if (!currentProjectPath) {
@@ -160,16 +188,19 @@ export const ProjectProvider = ({
     }
 
     try {
-      await saveJson(currentProjectPath, state)
+      await saveJson(currentProjectPath, state.present)
+      dispatch({ type: "MARK_SAVED" })
       console.log("Projet écrasé avec succès :", currentProjectPath)
       return { success: true, message: "Projet sauvegardé." }
     } catch (error) {
       console.error("Erreur Save :", error)
       return saveAs()
     }
-  }, [state, currentProjectPath, saveAs])
+  }, [state.present, currentProjectPath, saveAs])
 
-  const createNew = useCallback(() => {
+  const createNew = useCallback(async () => {
+    if (!(await confirmDiscard())) return
+
     dispatch({
       type: "LOAD_PROJECT",
       payload: {
@@ -180,10 +211,10 @@ export const ProjectProvider = ({
     })
     handleReset()
     console.log("Nouveau projet créé.")
-  }, [])
+  }, [confirmDiscard, handleReset])
 
   const api: ProjectContextType = {
-    data: state,
+    data: state.present,
     fixtures: {
       add: (data) => dispatch({ type: "ADD_FIXTURE", payload: data }),
       update: (f) => dispatch({ type: "UPDATE_FIXTURE", payload: f }),
@@ -193,6 +224,12 @@ export const ProjectProvider = ({
     save,
     saveAs,
     new: createNew,
+    isDirty: state.isDirty,
+    undo: () => dispatch({ type: "UNDO" }),
+    redo: () => dispatch({ type: "REDO" }),
+    canUndo: state.past.length > 0,
+    canRedo: state.future.length > 0,
+    shouldSave,
     path: currentProjectPath,
     name: projectName,
   }
