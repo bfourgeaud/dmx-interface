@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "composite": true,
+    //"composite": true,
     "target": "ES2020",
     "useDefineForClassFields": true,
     "lib": ["esnext", "DOM", "DOM.Iterable"],
@@ -9,8 +9,10 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "noEmit": true, // <--- CRUCIAL : Ne pas générer de fichiers
     "jsx": "react-jsx",
 
     /* Linting */
@@ -18,9 +20,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
-  }
+  },
+  "include": ["src"]
 }

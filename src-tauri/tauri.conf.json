@@ -14,7 +14,8 @@
       {
         "title": "dmx-interface",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "devtools": true
       }
     ],
     "security": {
@@ -22,7 +23,7 @@
         "enable": true,
         "scope": ["*/**"]
       },
-      "csp": "default-src 'self'; media-src 'self' asset: https://asset.localhost;"
+      "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost http://asset.localhost; media-src 'self' asset: https://asset.localhost http://asset.localhost; connect-src 'self' asset: https://asset.localhost http://asset.localhost http://ipc.localhost ipc.localhost; style-src 'self' 'unsafe-inline';"
     }
   },
   "bundle": {
