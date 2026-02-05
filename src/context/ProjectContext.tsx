@@ -1,7 +1,8 @@
+import { FixtureAPI, useFixtureAPI } from "@/hooks/use-fixture-api"
+import { SceneAPI, useSceneAPI } from "@/hooks/use-scene-api"
 import { APP_PATHS, DEFAULT_PROJECT } from "@/lib/constants"
 import { getOpenPath, getSavePath, loadJson, saveJson } from "@/lib/fs"
 import { projectReducer, ProjectState } from "@/lib/project-handler"
-import { DmxFixture } from "@/types/dmx"
 import { Project } from "@/types/project"
 import { basename, join } from "@tauri-apps/api/path"
 import { ask } from "@tauri-apps/plugin-dialog"
@@ -27,11 +28,8 @@ const initialState: ProjectState = {
 
 interface ProjectContextType {
   data: Project
-  fixtures: {
-    add: (data: Omit<DmxFixture, "id" | "channels">) => void
-    update: (fixture: DmxFixture) => void
-    delete: (id: string) => void
-  }
+  fixtures: FixtureAPI.Root
+  scenes: SceneAPI.Root
   load: () => Promise<UserActionResult>
   save: () => Promise<UserActionResult>
   saveAs: () => Promise<UserActionResult>
@@ -213,13 +211,13 @@ export const ProjectProvider = ({
     console.log("Nouveau projet créé.")
   }, [confirmDiscard, handleReset])
 
+  const sceneAPI = useSceneAPI(state.present.scenes, dispatch)
+  const fixtureAPI = useFixtureAPI(state.present.fixtures, dispatch)
+
   const api: ProjectContextType = {
     data: state.present,
-    fixtures: {
-      add: (data) => dispatch({ type: "ADD_FIXTURE", payload: data }),
-      update: (f) => dispatch({ type: "UPDATE_FIXTURE", payload: f }),
-      delete: (id) => dispatch({ type: "DELETE_FIXTURE", payload: id }),
-    },
+    fixtures: fixtureAPI,
+    scenes: sceneAPI,
     load,
     save,
     saveAs,

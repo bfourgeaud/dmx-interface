@@ -1,6 +1,7 @@
 import { AppSettings } from "@/types/app"
 import { ViewItem } from "@/types/navigation"
 import { Project } from "@/types/project"
+import { Scene } from "@/types/scene"
 
 export const DEFAULT_SETTINGS: AppSettings = {
   autoSave: false,
@@ -25,3 +26,22 @@ export const DEFAULT_PROJECT: Project = {
   fixtures: [],
   scenes: [],
 }
+
+export const DEFAULT_SCENE: Omit<Scene, "id" | "order"> = {
+  name: "Nouvelle scène",
+  trigger: { type: "manual" },
+  duration: "auto",
+  actions: [],
+}
+
+export const CHANNEL_TYPES = {
+  dimmer: "Dimmer",
+  red: "Rouge",
+  green: "Vert",
+  blue: "Bleu",
+  white: "Blanc",
+  pan: "Pan (Horizontal)",
+  tilt: "Tilt (Vertical)",
+  strobe: "Strobe",
+  raw: "Custom / Autre",
+} as const

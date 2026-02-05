@@ -13,15 +13,27 @@ import { ComponentProps, useState } from "react"
 
 import { Field, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field"
 import { useProject } from "@/context/ProjectContext"
-import { DmxFixture } from "@/types/dmx"
+import { CHANNEL_TYPES } from "@/lib/constants"
+import { ChannelType, DmxFixture } from "@/types/dmx"
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card"
+import { Label } from "../ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select"
 
 export function AddFixtureButton({
+  onSuccess,
   variant = "outline",
   size = "icon",
   children,
   ...props
-}: ComponentProps<typeof Button>) {
+}: ComponentProps<typeof Button> & {
+  onSuccess?: () => void
+}) {
   const project = useProject()
   const [open, setOpen] = useState(false)
 
@@ -43,6 +55,7 @@ export function AddFixtureButton({
     setName("")
     setAddress(address + count) // Auto-incrément pratique pour la suivante
     setOpen(false)
+    onSuccess?.()
   }
 
   return (
@@ -121,16 +134,16 @@ export function FixtureCard({ fixture }: { fixture: DmxFixture }) {
             </p>
           </div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Settings2Icon className="h-4 w-4" />
-            </Button>
+            <FixtureUpdateTrigger variant="ghost" size="icon" fixture={fixture}>
+              <Settings2Icon />
+            </FixtureUpdateTrigger>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive"
+              className="text-destructive hover:text-destructive"
               onClick={() => project.fixtures.delete(fixture.id)}
             >
-              <Trash2Icon className="h-4 w-4" />
+              <Trash2Icon />
             </Button>
           </div>
         </div>
@@ -141,5 +154,110 @@ export function FixtureCard({ fixture }: { fixture: DmxFixture }) {
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+export function FixtureUpdateTrigger({
+  children,
+  variant = "ghost",
+  size = "icon",
+  fixture,
+  ...props
+}: ComponentProps<typeof Button> & { fixture: DmxFixture }) {
+  const project = useProject()
+  const [open, setOpen] = useState(false)
+  const [tempFixture, setTempFixture] = useState<DmxFixture>(fixture)
+
+  const handleSave = () => {
+    project.fixtures.update(tempFixture)
+    setOpen(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant={variant} size={size} {...props}>
+          {children || <Settings2Icon />}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Éditer {fixture.name}</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name">Nom</Label>
+            <Input
+              id="name"
+              className="col-span-3"
+              value={tempFixture.name}
+              onChange={(e) =>
+                setTempFixture({ ...tempFixture, name: e.target.value })
+              }
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="address">Adresse DMX</Label>
+            <Input
+              id="address"
+              type="number"
+              className="col-span-3"
+              value={tempFixture.startAddress}
+              onChange={(e) =>
+                setTempFixture({
+                  ...tempFixture,
+                  startAddress: parseInt(e.target.value),
+                })
+              }
+            />
+          </div>
+
+          <div className="mt-4">
+            <h4 className="mb-2 font-medium border-b pb-1">
+              Configuration des canaux
+            </h4>
+            <div className="space-y-3">
+              {tempFixture.channels.map((channel, index) => (
+                <div
+                  key={channel.id}
+                  className="grid grid-cols-12 gap-2 items-center bg-muted/30 p-2 rounded-md"
+                >
+                  <span className="col-span-1 text-xs font-mono text-muted-foreground">
+                    #{channel.number + 1}
+                  </span>
+                  <Select
+                    value={channel.type}
+                    onValueChange={(val: ChannelType) => {
+                      const newChannels = [...tempFixture.channels]
+                      newChannels[index].type = val
+                      setTempFixture({ ...tempFixture, channels: newChannels })
+                    }}
+                  >
+                    <SelectTrigger className="col-span-6 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(CHANNEL_TYPES).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Annuler
+          </Button>
+          <Button onClick={handleSave}>Enregistrer les modifications</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

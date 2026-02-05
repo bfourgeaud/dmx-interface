@@ -1,13 +1,36 @@
-import { DmxFixture, Scene } from "@/types/dmx"
+import { fixturesReducer } from "@/reducers/fixturesReducer"
+import { scenesReducer } from "@/reducers/sceneReducer"
+import { DmxChannel, DmxFixture } from "@/types/dmx"
 import { Project } from "@/types/project"
+import { Scene, SceneAction } from "@/types/scene"
 
 export type ProjectAction =
   | { type: "LOAD_PROJECT"; payload: Project }
   | { type: "ADD_FIXTURE"; payload: Omit<DmxFixture, "id" | "channels"> }
   | { type: "UPDATE_FIXTURE"; payload: DmxFixture }
   | { type: "DELETE_FIXTURE"; payload: string }
-  | { type: "ADD_SCENE"; payload: Scene }
+  | { type: "ADD_SCENE" }
+  | { type: "UPDATE_SCENE"; payload: Scene }
   | { type: "DELETE_SCENE"; payload: string }
+  | { type: "ADD_ACTION"; payload: { sceneId: string; action: SceneAction } }
+  | {
+      type: "UPDATE_ACTION"
+      payload: { sceneId: string; actionId: string; data: Partial<SceneAction> }
+    }
+  | { type: "DELETE_ACTION"; payload: { sceneId: string; actionId: string } }
+  | { type: "ADD_CHANNEL"; payload: { fixtureId: string; channel: DmxChannel } }
+  | {
+      type: "UPDATE_CHANNEL"
+      payload: {
+        fixtureId: string
+        channelId: string
+        data: Partial<DmxChannel>
+      }
+    }
+  | {
+      type: "DELETE_CHANNEL"
+      payload: { fixtureId: string; channelId: string }
+    }
 
 export type ProjectStateAction =
   | ProjectAction
@@ -23,43 +46,14 @@ export interface ProjectState {
 }
 
 function baseReducer(state: Project, action: ProjectAction): Project {
-  switch (action.type) {
-    case "ADD_FIXTURE":
-      const newFixture: DmxFixture = {
-        ...action.payload,
-        id: crypto.randomUUID(),
-        channels: Array.from(
-          { length: action.payload.channelCount },
-          (_, i) => ({
-            id: crypto.randomUUID(),
-            name: `Canal ${i + 1}`,
-            description: "",
-            number: i,
-          }),
-        ),
-      }
-      return { ...state, fixtures: [...state.fixtures, newFixture] }
+  // On passe par les différents reducers.
+  // Chaque reducer retourne soit le nouveau state, soit l'ancien s'il n'est pas concerné.
+  let newState = state
 
-    case "UPDATE_FIXTURE":
-      return {
-        ...state,
-        fixtures: state.fixtures.map((f) =>
-          f.id === action.payload.id ? action.payload : f,
-        ),
-      }
+  newState = fixturesReducer(newState, action)
+  newState = scenesReducer(newState, action)
 
-    case "DELETE_FIXTURE":
-      return {
-        ...state,
-        fixtures: state.fixtures.filter((f) => f.id !== action.payload),
-      }
-
-    case "LOAD_PROJECT":
-      return action.payload
-
-    default:
-      return state
-  }
+  return newState
 }
 
 export function projectReducer(

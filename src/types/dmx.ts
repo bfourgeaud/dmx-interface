@@ -1,8 +1,21 @@
+export type ChannelType =
+  | "dimmer"
+  | "red"
+  | "green"
+  | "blue"
+  | "white"
+  | "amber"
+  | "pan"
+  | "tilt"
+  | "strobe"
+  | "gobo"
+  | "raw" // Pour tout le reste
+
 export interface DmxChannel {
   id: string
   number: number // Index relatif (1, 2, 3...)
-  name: string
-  description: string
+  type: ChannelType
+  defaultValue: number
 }
 
 export interface DmxFixture {
@@ -11,10 +24,4 @@ export interface DmxFixture {
   startAddress: number // Adresse DMX de départ (1-512)
   channelCount: number
   channels: DmxChannel[]
-}
-
-export interface Scene {
-  id: string
-  name: string
-  values: Record<number, number> // { canal: valeur }
 }

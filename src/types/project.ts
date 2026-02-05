@@ -1,4 +1,5 @@
-import { DmxFixture, Scene } from "./dmx"
+import { DmxFixture } from "./dmx"
+import { Scene } from "./scene"
 
 export interface Project {
   id: string

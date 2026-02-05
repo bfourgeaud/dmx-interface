@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
 import { FixtureView } from "./components/vues/fixture-view"
+import { LiveView } from "./components/vues/live-view"
 import { SceneView } from "./components/vues/scene-view"
 import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts"
 import { useUnsavedClose } from "./hooks/use-unsaved-close"
@@ -19,11 +20,7 @@ function App() {
       case "scenes":
         return <SceneView />
       case "live":
-        return (
-          <div className="p-6">
-            <h1>Console Live</h1>
-          </div>
-        )
+        return <LiveView />
       default:
         return null
     }

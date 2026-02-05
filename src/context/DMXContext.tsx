@@ -9,6 +9,8 @@ interface DmxGlobalActions {
 
   isBlackout: boolean
   toggleBlackout: () => void
+
+  reset: () => void
 }
 
 // Interface pour l'usage spécifique (ex: Fader)
@@ -18,6 +20,8 @@ interface DmxChannelActions {
 
   isBlackout: boolean
   toggleBlackout: () => void
+
+  reset: () => void
 }
 
 const DmxContext = createContext<DmxGlobalActions | undefined>(undefined)
@@ -75,9 +79,17 @@ export const DmxProvider = ({ children }: { children: React.ReactNode }) => {
     })
   }, [universe, sendToHardware])
 
+  const reset = () => {
+    Object.keys(universe).forEach((ch) => {
+      const channel = parseInt(ch)
+      // Si on passe en blackout, on envoie 0, sinon on renvoie la valeur de l'univers
+      setChannelValue(channel, 0)
+    })
+  }
+
   return (
     <DmxContext.Provider
-      value={{ universe, setChannelValue, toggleBlackout, isBlackout }}
+      value={{ universe, setChannelValue, toggleBlackout, isBlackout, reset }}
     >
       {children}
     </DmxContext.Provider>
@@ -91,13 +103,14 @@ export function useDmx(address?: number) {
   const context = useContext(DmxContext)
   if (!context) throw new Error("useDmx must be used within DmxProvider")
 
-  const { universe, setChannelValue, ...rest } = context
+  const { universe, setChannelValue, reset, ...rest } = context
 
   if (address !== undefined) {
     const value = universe[address] ?? 0
     const setValue = (val: number) => setChannelValue(address, val)
+    const reset = () => setChannelValue(address, 0)
 
-    return { value, setValue, ...rest }
+    return { value, setValue, reset, ...rest }
   }
 
   return context

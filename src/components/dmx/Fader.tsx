@@ -15,21 +15,28 @@ function useFaderContext() {
   return ctx
 }
 
-interface DMXFaderProps extends React.ComponentProps<"div"> {
+interface DMXFaderProps extends Omit<React.ComponentProps<"div">, "onChange"> {
   address: number
   initialValue?: number
+  onChange?: (value: number) => void
 }
 
 export function DMXFader({
   address,
   initialValue = 0,
   className,
+  onChange,
   ...props
 }: DMXFaderProps) {
   const { value, setValue } = useDmx(address)
 
+  const handleChange = (val: number) => {
+    setValue(val)
+    onChange?.(val)
+  }
+
   return (
-    <FaderContext.Provider value={{ value, setValue }}>
+    <FaderContext.Provider value={{ value, setValue: handleChange }}>
       <div
         className={cn(
           "px-2 py-1 border w-fit flex flex-col items-center",
